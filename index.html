@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>薬物動態シミュレーター (1-Compartment PK Simulator)</title>
+<style>
+  :root {
+    --primary: #1e3a8a;
+    --primary-light: #eff6ff;
+    --accent-1: #dc2626;
+    --accent-2: #2563eb;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #cbd5e1;
+    --text: #1e293b;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  header .sub {
+    font-size: 0.78rem;
+    opacity: 0.85;
+  }
+  .btn-export {
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .btn-export:active { transform: scale(0.98); }
+
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 960px) {
+    .container { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .step-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--primary);
+    border-left: 4px solid var(--primary);
+    padding-left: 8px;
+    margin: 0 0 12px 0;
+  }
+  .step-block {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .step-block:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .field {
+    margin-bottom: 10px;
+  }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: #fff;
+    color: var(--text);
+  }
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(30,58,138,0.15);
+  }
+
+  .drug-note {
+    background: var(--primary-light);
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    color: #1e40af;
+    margin-bottom: 10px;
+  }
+
+  .calc-box {
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.84rem;
+    margin-top: 6px;
+  }
+  .calc-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+  }
+  .calc-row:last-child { margin-bottom: 0; }
+  .calc-val { font-weight: 700; color: var(--primary); }
+
+  .action-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .btn-draw-1, .btn-draw-2 {
+    border: none;
+    border-radius: 8px;
+    padding: 11px 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+  }
+  .btn-draw-1 { background: var(--accent-1); }
+  .btn-draw-2 { background: var(--accent-2); }
+  .btn-clear {
+    width: 100%;
+    margin-top: 8px;
+    background: #e2e8f0;
+    color: #334155;
+    border: none;
+    border-radius: 8px;
+    padding: 7px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .warn-banner {
+    display: none;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    color: #92400e;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    touch-action: none;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 360px;
+  }
+
+  .scan-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    font-size: 0.86rem;
+  }
+  .scan-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .scan-controls select {
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .scan-readout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-weight: 700;
+  }
+  .tag-1 { color: var(--accent-1); }
+  .tag-2 { color: var(--accent-2); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 14px;
+    font-size: 0.88rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: center;
+  }
+  th {
+    background: #f1f5f9;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .row-1 td:first-child { color: var(--accent-1); font-weight: 700; }
+  .row-2 td:first-child { color: var(--accent-2); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>薬物動態シミュレーター（1-コンパートメントモデル）</h1>
+    <div class="sub">薬理学実習用 Web シミュレーター（iPad / PC 対応）</div>
+  </div>
+  <button class="btn-export" onclick="exportPNG()">グラフ画像保存 (PNG)</button>
+</header>
+
+<div class="container">
+  <!-- 左ペイン：設定条件 -->
+  <div class="panel">
+    <div class="step-block">
+      <h2 class="step-title">Step 1. 薬物と患者背景・腎機能の設定</h2>
+      <div class="field">
+        <label>対象薬物の選択</label>
+        <select id="drugSelect" onchange="updatePK()">
+          <option value="phenobarbital">フェノバルビタール（経口）</option>
+          <option value="theophylline">テオフィリン徐放剤（経口）</option>
+          <option value="vancomycin">バンコマイシン塩酸塩（点滴静注）</option>
+          <option value="digoxin">ジゴキシン（急速静注）</option>
+        </select>
+      </div>
+      <div id="drugNote" class="drug-note"></div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>体重 (kg)</label>
+          <input type="number" id="bw" value="65" step="0.1" oninput="updatePK()">
+        </div>
+        <div class="field">
+          <label>年齢 (歳)</label>
+          <input type="number" id="age" value="35" step="1" oninput="updatePK()">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>性別</label>
+          <select id="sex" onchange="updatePK()">
+            <option value="M">男性</option>
+            <option value="F">女性</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>血清クレアチニン値 SCr (mg/dL)</label>
+          <input type="number" id="scr" value="0.80" step="0.05" oninput="updatePK()">
+        </div>
+      </div>
+
+      <div class="calc-box">
+        <div class="calc-row">
+          <span>推算クレアチニンクリアランス (CLcr):</span>
+          <span class="calc-val" id="dispCLcr">-</span>
+        </div>
+        <div class="calc-row">
+          <span>全身クリアランス (CL):</span>
+          <span class="calc-val" id="dispCL">-</span>
+        </div>
+        <div class="calc-row">
+          <span>生物学的半減期 (t1/2):</span>
+          <span class="calc-val" id="dispThalf">-</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-block">
+      <h2 class="step-title">Step 2. 投与条件の設定</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label>投与経路</label>
+          <select id="route" onchange="toggleRouteFields()">
+            <option value="oral">経口投与</option>
+            <option value="bolus">急速静注</option>
+            <option value="infusion">点滴静注</option>
+          </select>
+        </div>
+        <div class="field" id="doseField">
+          <label>1回投与量 (mg)</label>
+          <input type="number" id="dose" value="50" step="0.05">
+        </div>
+      </div>
+
+      <div class="grid-2" id="infusionFields" style="display:none;">
+        <div class="field">
+          <label>点滴速度 (mg/hr)</label>
+          <input type="number" id="infRate" value="500" step="10">
+        </div>
+        <div class="field">
+          <label>点滴時間 (hr)</label>
+          <input type="number" id="infTime" value="1" step="0.5">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>投与回数 (回)</label>
+          <input type="number" id="nDoses" value="1" min="1" max="50" step="1">
+        </div>
+        <div class="field">
+          <label>投与間隔 (hr)</label>
+          <input type="number" id="tau" value="24" min="1" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="step-block">
+      <h2 class="step-title">Step 3. グラフ軸スケールの設定</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label>観察時間 / 横軸最大値 (hr)</label>
+          <input type="number" id="maxHours" value="48" step="12">
+        </div>
+        <div class="field">
+          <label>縦軸最大値 (Y max)</label>
+          <input type="number" id="yMax" value="5" step="0.5">
+        </div>
+      </div>
+      <div class="field">
+        <label>縦軸の濃度単位</label>
+        <select id="yUnit">
+          <option value="mg/L">mg/L</option>
+          <option value="ug/L">μg/L</option>
+        </select>
+      </div>
+
+      <div class="action-btns">
+        <button class="btn-draw-1" onclick="runSimulation(1)">条件①（赤線）に描画</button>
+        <button class="btn-draw-2" onclick="runSimulation(2)">条件②（青線）に描画</button>
+      </div>
+      <button class="btn-clear" onclick="clearAll()">グラフと記録をリセット</button>
+    </div>
+  </div>
+
+  <!-- 右ペイン：グラフと記録表 -->
+  <div class="panel">
+    <div id="warnBanner" class="warn-banner"></div>
+
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="pkCanvas"></canvas>
+    </div>
+
+    <div class="scan-bar">
+      <div class="scan-controls">
+        <span>スキャン間隔:</span>
+        <select id="scanStep" onchange="drawGraph(true)">
+          <option value="0.1" selected>0.1 hr</option>
+          <option value="0.5">0.5 hr</option>
+          <option value="1.0">1.0 hr</option>
+        </select>
+        <span style="color:#64748b; font-size:0.78rem;">（※グラフ上をドラッグ/タップで濃度読取）</span>
+      </div>
+      <div class="scan-readout">
+        <span>時刻: <span id="scanT">0.0</span> hr (<span id="scanDay">0.00</span> day)</span>
+        <span class="tag-1">条件①: <span id="scanC1">-</span></span>
+        <span class="tag-2">条件②: <span id="scanC2">-</span></span>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>条件</th>
+          <th>設定概要</th>
+          <th>Cmax</th>
+          <th>Tmax (hr)</th>
+          <th>t1/2 (hr)</th>
+          <th>AUC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-1">
+          <td>条件①（赤）</td>
+          <td id="desc1">-</td>
+          <td id="cmax1">-</td>
+          <td id="tmax1">-</td>
+          <td id="thalf1">-</td>
+          <td id="auc1">-</td>
+        </tr>
+        <tr class="row-2">
+          <td>条件②（青）</td>
+          <td id="desc2">-</td>
+          <td id="cmax2">-</td>
+          <td id="tmax2">-</td>
+          <td id="thalf2">-</td>
+          <td id="auc2">-</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const DRUG_MODELS = {
+    phenobarbital: {
+      name: "フェノバルビタール",
+      defaultRoute: "oral",
+      vdPerKg: 0.6,
+      ka: 1.5,
+      F: 0.9,
+      note: "【薬物特性】抗てんかん薬・催眠鎮静薬。経口投与後、比較的速やかに吸収されます（実習モデルではSCrから算出したCLcrをクリアランスとして適用します）。"
+    },
+    theophylline: {
+      name: "テオフィリン徐放剤",
+      defaultRoute: "oral",
+      vdPerKg: 0.5,
+      ka: 0.14,
+      F: 1.0,
+      note: "【薬物特性】気管支拡張薬。徐放性製剤のため吸収速度定数(ka)が小さく設計されており、最高血中濃度到達時間(Tmax)が遅延します。"
+    },
+    vancomycin: {
+      name: "バンコマイシン塩酸塩",
+      defaultRoute: "infusion",
+      vdPerKg: 0.7,
+      ka: 0,
+      F: 1.0,
+      note: "【薬物特性】グリコペプチド系抗菌薬（MRSA治療薬）。点滴静注（通常1時間以上かけて投与）で用いられ、主に腎臓から未変化体として排泄されます。"
+    },
+    digoxin: {
+      name: "ジゴキシン",
+      defaultRoute: "bolus",
+      vdPerKg: 9.0,
+      ka: 0,
+      F: 1.0,
+      note: "【薬物特性】強心配糖体。分布容積(Vd)が極めて大きく、主に腎臓から排泄されるため、腎機能低下により半減期(t1/2)が著しく延長します（単位：μg/L）。"
+    }
+  };
+
+  let sim1 = null;
+  let sim2 = null;
+  let scanTimeHr = 0;
+
+  function getCurrentPK() {
+    const drugKey = document.getElementById("drugSelect").value;
+    const model = DRUG_MODELS[drugKey];
+    const bw = parseFloat(document.getElementById("bw").value) || 60;
+    const age = parseFloat(document.getElementById("age").value) || 40;
+    const sex = document.getElementById("sex").value;
+    const scr = parseFloat(document.getElementById("scr").value) || 0.8;
+
+    let clcrMin = ((140 - age) * bw) / (72 * scr);
+    if (sex === "F") clcrMin *= 0.85;
+    const clcrHr = clcrMin * 0.06;
+
+    let clHr = clcrHr;
+    if (drugKey === "vancomycin") {
+      clHr = 0.80 * clcrHr;
+    } else if (drugKey === "digoxin") {
+      const clDigMin = 1.303 * clcrMin + 40.0;
+      clHr = clDigMin * 0.06;
+    }
+
+    const vd = model.vdPerKg * bw;
+    const ke = clHr / vd;
+    const thalf = Math.LN2 / ke;
+
+    return {
+      drugKey,
+      model,
+      bw,
+      age,
+      sex,
+      scr,
+      clcrMin,
+      clcrHr,
+      clHr,
+      vd,
+      ke,
+      thalf
+    };
+  }
+
+  function updatePK(autoAdjustDefaults = true) {
+    const pk = getCurrentPK();
+    document.getElementById("drugNote").textContent = pk.model.note;
+    document.getElementById("dispCLcr").textContent =
+      `${pk.clcrMin.toFixed(1)} mL/min (${pk.clcrHr.toFixed(2)} L/hr)`;
+    document.getElementById("dispCL").textContent =
+      `${pk.clHr.toFixed(2)} L/hr (${(pk.clHr / pk.bw).toFixed(4)} L/hr/kg)`;
+    document.getElementById("dispThalf").textContent = `${pk.thalf.toFixed(2)} hr`;
+
+    if (autoAdjustDefaults) {
+      const routeEl = document.getElementById("route");
+      if (routeEl.value !== pk.model.defaultRoute) {
+        routeEl.value = pk.model.defaultRoute;
+        toggleRouteFields();
+      }
+    }
+  }
+
+  function toggleRouteFields() {
+    const route = document.getElementById("route").value;
+    if (route === "infusion") {
+      document.getElementById("doseField").style.display = "none";
+      document.getElementById("infusionFields").style.display = "grid";
+    } else {
+      document.getElementById("doseField").style.display = "block";
+      document.getElementById("infusionFields").style.display = "none";
+    }
+  }
+
+  function calcConcentrationAt(t, params) {
+    const { route, dose, infRate, infTime, nDoses, tau, vd, ke, ka, F } = params;
+    let totalC = 0;
+    for (let i = 0; i < nDoses; i++) {
+      const dt = t - i * tau;
+      if (dt < 0) break;
+      if (route === "bolus") {
+        totalC += (dose / vd) * Math.exp(-ke * dt);
+      } else if (route === "oral") {
+        if (Math.abs(ka - ke) < 1e-6) {
+          totalC += ((F * dose * ka) / vd) * dt * Math.exp(-ke * dt);
+        } else {
+          totalC += ((F * dose * ka) / (vd * (ka - ke))) * (Math.exp(-ke * dt) - Math.exp(-ka * dt));
+        }
+      } else if (route === "infusion") {
+        if (dt <= infTime) {
+          totalC += (infRate / (ke * vd)) * (1 - Math.exp(-ke * dt));
+        } else {
+          const cEnd = (infRate / (ke * vd)) * (1 - Math.exp(-ke * infTime));
+          totalC += cEnd * Math.exp(-ke * (dt - infTime));
+        }
+      }
+    }
+    return Math.max(0, totalC);
+  }
+
+  function runSimulation(slot) {
+    const pk = getCurrentPK();
+    const route = document.getElementById("route").value;
+    const dose = parseFloat(document.getElementById("dose").value) || 0;
+    const infRate = parseFloat(document.getElementById("infRate").value) || 0;
+    const infTime = parseFloat(document.getElementById("infTime").value) || 1;
+    const nDoses = parseInt(document.getElementById("nDoses").value, 10) || 1;
+    const tau = parseFloat(document.getElementById("tau").value) || 24;
+    const maxHours = parseFloat(document.getElementById("maxHours").value) || 48;
+    const yUnit = document.getElementById("yUnit").value;
+
+    const unitFactor = (yUnit === "ug/L") ? 1000 : 1;
+
+    const params = {
+      route,
+      dose,
+      infRate,
+      infTime,
+      nDoses,
+      tau,
+      vd: pk.vd,
+      ke: pk.ke,
+      ka: pk.model.ka,
+      F: pk.model.F
+    };
+
+    const dt = 0.1;
+    const steps = Math.round(maxHours / dt);
+    const points = [];
+    let cmax = -1;
+    let tmax = 0;
+
+    for (let s = 0; s <= steps; s++) {
+      const t = Number((s * dt).toFixed(1));
+      const c = calcConcentrationAt(t, params) * unitFactor;
+      points.push({ t, c });
+      if (c > cmax + 1e-9) {
+        cmax = c;
+        tmax = t;
+      }
+    }
+
+    const totalDose = (route === "infusion") ? (infRate * infTime * nDoses) : (dose * nDoses);
+    const aucInf = ((pk.model.F * totalDose) / pk.clHr) * unitFactor;
+
+    let desc = "";
+    if (route === "infusion") {
+      desc = `${pk.model.name} (${infRate}mg/hr×${infTime}hr, SCr:${pk.scr})`;
+    } else {
+      desc = `${pk.model.name} (${dose}mg, SCr:${pk.scr})`;
+    }
+
+    const result = {
+      drugName: pk.model.name,
+      maxHours,
+      yUnit,
+      points,
+      cmax,
+      tmax,
+      thalf: pk.thalf,
+      auc: aucInf,
+      desc
+    };
+
+    if (slot === 1) sim1 = result;
+    else sim2 = result;
+
+    updateTable();
+    checkScaleWarnings();
+    drawGraph(true);
+  }
+
+  function updateTable() {
+    if (sim1) {
+      document.getElementById("desc1").textContent = sim1.desc;
+      document.getElementById("cmax1").textContent = `${sim1.cmax.toFixed(4)} ${sim1.yUnit}`;
+      document.getElementById("tmax1").textContent = `${sim1.tmax.toFixed(1)}`;
+      document.getElementById("thalf1").textContent = `${sim1.thalf.toFixed(2)}`;
+      document.getElementById("auc1").textContent = `${sim1.auc.toFixed(2)} ${sim1.yUnit}·hr`;
+    } else {
+      ["desc1","cmax1","tmax1","thalf1","auc1"].forEach(id => document.getElementById(id).textContent = "-");
+    }
+
+    if (sim2) {
+      document.getElementById("desc2").textContent = sim2.desc;
+      document.getElementById("cmax2").textContent = `${sim2.cmax.toFixed(4)} ${sim2.yUnit}`;
+      document.getElementById("tmax2").textContent = `${sim2.tmax.toFixed(1)}`;
+      document.getElementById("thalf2").textContent = `${sim2.thalf.toFixed(2)}`;
+      document.getElementById("auc2").textContent = `${sim2.auc.toFixed(2)} ${sim2.yUnit}·hr`;
+    } else {
+      ["desc2","cmax2","tmax2","thalf2","auc2"].forEach(id => document.getElementById(id).textContent = "-");
+    }
+  }
+
+  function checkScaleWarnings() {
+    const yMax = parseFloat(document.getElementById("yMax").value) || 5;
+    const banner = document.getElementById("warnBanner");
+    const maxC = Math.max(sim1 ? sim1.cmax : 0, sim2 ? sim2.cmax : 0);
+
+    if (maxC > yMax) {
+      banner.style.display = "block";
+      banner.textContent = `【注意】ピーク血中濃度（${maxC.toFixed(3)}）が縦軸最大値（${yMax}）を超えています。Step 3 の縦軸最大値を大きくして再描画してください。`;
+    } else if (maxC > 0 && maxC < yMax * 0.03) {
+      banner.style.display = "block";
+      banner.textContent = `【ヒント】グラフの波形が非常に小さくなっています。縦軸最大値または濃度単位（mg/L ⇔ μg/L）を見直してみてください。`;
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
+  function drawGraph(showCursor = true) {
+    const canvas = document.getElementById("pkCanvas");
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+
+    const W = rect.width;
+    const H = rect.height;
+    const padL = 64;
+    const padR = 24;
+    const padT = 28;
+    const padB = 46;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    const maxHours = parseFloat(document.getElementById("maxHours").value) || 48;
+    const yMax = parseFloat(document.getElementById("yMax").value) || 5;
+    const yUnit = document.getElementById("yUnit").value;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid & Y ticks
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 1;
+    ctx.fillStyle = "#475569";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+
+    const yTicks = 5;
+    for (let i = 0; i <= yTicks; i++) {
+      const val = (yMax / yTicks) * i;
+      const y = padT + plotH - (plotH * i) / yTicks;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+
+      const label = (val < 1 && val > 0) ? val.toFixed(2) : Number(val.toFixed(2)).toString();
+      ctx.fillText(label, padL - 8, y);
+    }
+
+    // X ticks (Time in days, matching Qflex2)
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const maxDays = maxHours / 24;
+    const xTicks = 5;
+    for (let i = 0; i <= xTicks; i++) {
+      const dayVal = (maxDays / xTicks) * i;
+      const x = padL + (plotW * i) / xTicks;
+      ctx.beginPath();
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, padT + plotH);
+      ctx.stroke();
+
+      const dayLabel = Number.isInteger(dayVal) ? dayVal.toString() : dayVal.toFixed(1);
+      ctx.fillText(dayLabel, x, padT + plotH + 8);
+    }
+
+    // Axes lines
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, padT + plotH);
+    ctx.lineTo(padL + plotW, padT + plotH);
+    ctx.stroke();
+
+    // Axis titles
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("Time (day)", padL + plotW, padT + plotH + 26);
+
+    ctx.save();
+    ctx.translate(16, padT + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center";
+    ctx.fillText(`Cp (${yUnit})`, 0, 0);
+    ctx.restore();
+
+    // Plot curves
+    function plotSeries(sim, color) {
+      if (!sim || !sim.points.length) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(padL, padT, plotW, plotH);
+      ctx.clip();
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      sim.points.forEach((pt, idx) => {
+        const x = padL + (pt.t / maxHours) * plotW;
+        const y = padT + plotH - (pt.c / yMax) * plotH;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    plotSeries(sim1, "#dc2626");
+    plotSeries(sim2, "#2563eb");
+
+    // Legend
+    let legY = padT + 10;
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "left";
+    if (sim1) {
+      ctx.fillStyle = "#dc2626";
+      ctx.fillRect(padL + 14, legY, 16, 3);
+      ctx.fillText(`条件①: ${sim1.desc}`, padL + 36, legY - 4);
+      legY += 18;
+    }
+    if (sim2) {
+      ctx.fillStyle = "#2563eb";
+      ctx.fillRect(padL + 14, legY, 16, 3);
+      ctx.fillText(`条件②: ${sim2.desc}`, padL + 36, legY - 4);
+    }
+
+    // Cursor scan line
+    if (showCursor) {
+      const step = parseFloat(document.getElementById("scanStep").value) || 0.1;
+      const clampedT = Math.max(0, Math.min(maxHours, Math.round(scanTimeHr / step) * step));
+      const cx = padL + (clampedT / maxHours) * plotW;
+
+      ctx.strokeStyle = "#16a34a";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(cx, padT);
+      ctx.lineTo(cx, padT + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      document.getElementById("scanT").textContent = clampedT.toFixed(1);
+      document.getElementById("scanDay").textContent = (clampedT / 24).toFixed(2);
+
+      const getValAt = (sim) => {
+        if (!sim) return "-";
+        const idx = Math.min(sim.points.length - 1, Math.max(0, Math.round(clampedT / 0.1)));
+        return `${sim.points[idx].c.toFixed(4)} ${sim.yUnit}`;
+      };
+      document.getElementById("scanC1").textContent = getValAt(sim1);
+      document.getElementById("scanC2").textContent = getValAt(sim2);
+    }
+  }
+
+  function handlePointer(e) {
+    const canvas = document.getElementById("pkCanvas");
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = clientX - rect.left;
+    const padL = 64;
+    const padR = 24;
+    const plotW = rect.width - padL - padR;
+    const maxHours = parseFloat(document.getElementById("maxHours").value) || 48;
+
+    const ratio = Math.max(0, Math.min(1, (x - padL) / plotW));
+    scanTimeHr = ratio * maxHours;
+    drawGraph(true);
+  }
+
+  const canvasEl = document.getElementById("pkCanvas");
+  let isDragging = false;
+  canvasEl.addEventListener("mousedown", (e) => { isDragging = true; handlePointer(e); });
+  window.addEventListener("mousemove", (e) => { if (isDragging) handlePointer(e); });
+  window.addEventListener("mouseup", () => { isDragging = false; });
+  canvasEl.addEventListener("touchstart", (e) => { isDragging = true; handlePointer(e); }, { passive: true });
+  canvasEl.addEventListener("touchmove", (e) => { if (isDragging) handlePointer(e); }, { passive: true });
+  canvasEl.addEventListener("touchend", () => { isDragging = false; });
+
+  function clearAll() {
+    sim1 = null;
+    sim2 = null;
+    scanTimeHr = 0;
+    document.getElementById("warnBanner").style.display = "none";
+    updateTable();
+    drawGraph(true);
+  }
+
+  function exportPNG() {
+    drawGraph(false);
+    const canvas = document.getElementById("pkCanvas");
+    const link = document.createElement("a");
+    const label = sim1 ? sim1.drugName : (sim2 ? sim2.drugName : "PK_Graph");
+    link.download = `${label}_血中濃度推移グラフ.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    drawGraph(true);
+  }
+
+  window.addEventListener("resize", () => drawGraph(true));
+
+  // 初期ロード時にケース1①を自動セット・描画
+  window.addEventListener("DOMContentLoaded", () => {
+    updatePK(true);
+    runSimulation(1);
+  });
+</script>
+</body>
+</html>
